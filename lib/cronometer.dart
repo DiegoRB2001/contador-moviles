@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math';
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
@@ -15,29 +16,24 @@ class _CronometerState extends State<Cronometer> {
 
   //Temporales
   int submili = 0;
-  late Timer subtimer;
 
   late Timer timer;
   bool estaCorriendo = false;
-  List<String> tiempos = [];
+  List<int> tiemposMeta = [];
+  List<int> tiemposTotal = [];
 
   void iniciarCronometro() {
     if (!estaCorriendo) {
-      timer = Timer.periodic(Duration(milliseconds: 10), (timer) {
-        this.milisegundos += 10;
+      timer = Timer.periodic(const Duration(milliseconds: 10), (timer) {
+        milisegundos += 10;
         setState(() {});
-        estaCorriendo = true;
       });
-
-      subtimer = Timer.periodic(Duration(milliseconds: 10), (timer) {
-        this.submili += 10;
-      });
+      estaCorriendo = true;
     }
   }
 
   void detenerCronometro() {
     timer.cancel();
-    subtimer.cancel();
     estaCorriendo = false;
   }
 
@@ -63,44 +59,78 @@ class _CronometerState extends State<Cronometer> {
     return Padding(
       padding: const EdgeInsets.only(top: 150),
       child: Column(mainAxisSize: MainAxisSize.min, children: [
-        Text(formatearTiempo(this.milisegundos),
-            style: TextStyle(fontSize: 50, color: Colors.white)),
+        Text(formatearTiempo(milisegundos),
+            style: const TextStyle(fontSize: 50, color: Colors.white)),
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           children: [
             CupertinoButton(
-                child: Icon(Icons.not_started_outlined,
-                    color: Colors.green, size: 50),
-                onPressed: iniciarCronometro),
+                onPressed: iniciarCronometro,
+                child: const Icon(Icons.not_started_outlined,
+                    color: Colors.green, size: 50)),
             CupertinoButton(
-                child: Icon(Icons.stop_outlined, size: 50, color: Colors.red),
-                onPressed: detenerCronometro),
+                onPressed: detenerCronometro,
+                child: const Icon(Icons.stop_outlined,
+                    size: 50, color: Colors.red)),
           ],
         ),
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             CupertinoButton(
-                child: Icon(Icons.check_circle_outline,
+                child: const Icon(Icons.check_circle_outline,
                     size: 50, color: Colors.orange),
                 onPressed: () {
-                  print('agregado');
-                  tiempos.insert(
-                    0,
-                    formatearTiempo(this.submili),
-                  );
-                  submili = 0;
-                  setState(() {});
+                  if (estaCorriendo) {
+                    if (tiemposMeta.isEmpty) {
+                      tiemposMeta.insert(
+                        0,
+                        milisegundos,
+                      );
+                    } else {
+                      tiemposMeta.insert(0, milisegundos - submili);
+                    }
+                    tiemposTotal.insert(
+                      0,
+                      (milisegundos),
+                    );
+                    submili = milisegundos;
+                    setState(() {});
+                  }
                 }),
             CupertinoButton(
-                child: Icon(Icons.restart_alt, size: 50, color: Colors.orange),
+                child: const Icon(Icons.restart_alt,
+                    size: 50, color: Colors.orange),
                 onPressed: () {
-                  this.milisegundos = 0;
-                  this.submili = 0;
-                  tiempos.clear();
+                  milisegundos = 0;
+                  submili = 0;
+                  tiemposMeta.clear();
+                  tiemposTotal.clear();
                   setState(() {});
                 }),
           ],
+        ),
+        ListTile(
+          leading: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: const [
+              Text(
+                'Vueltas',
+                style: TextStyle(fontSize: 20, color: Colors.white),
+              ),
+            ],
+          ),
+          title: const Padding(
+            padding: EdgeInsets.only(right: 60.0),
+            child: Text('Tiempo',
+                style: TextStyle(fontSize: 20, color: Colors.white),
+                textAlign: TextAlign.center),
+          ),
+          trailing: const Padding(
+            padding: EdgeInsets.only(right: 60.0),
+            child: Text('Total',
+                style: TextStyle(fontSize: 20, color: Colors.white)),
+          ),
         ),
         Expanded(
           child: Container(
@@ -108,25 +138,42 @@ class _CronometerState extends State<Cronometer> {
               child: ListView.separated(
                   itemBuilder: (context, index) {
                     String tiempo;
-                    int length = tiempos.length;
+                    String subtiempo;
+                    int length = tiemposMeta.length;
+                    Color color = Colors.white;
+                    if (tiemposMeta.isEmpty) {
+                      return const Text('');
+                    }
                     if (index == 0) {
-                      tiempo = formatearTiempo(this.submili);
+                      tiempo = formatearTiempo(milisegundos - submili);
+                      subtiempo = formatearTiempo(milisegundos);
                     } else {
-                      tiempo = tiempos[index - 1];
+                      tiempo = formatearTiempo(tiemposMeta[index - 1]);
+                      subtiempo = formatearTiempo(tiemposTotal[index - 1]);
+                      if (tiemposMeta[index - 1] == tomarMayor(tiemposMeta)) {
+                        color = Colors.red;
+                      }
+                      if (tiemposMeta[index - 1] == tomarMenor(tiemposMeta)) {
+                        color = Colors.green;
+                      }
                     }
                     return ListTile(
                       leading: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Text(
-                            'Lap ${(length - index) + 1}',
-                            style: TextStyle(fontSize: 20, color: Colors.white),
+                            '${(length - index) + 1}',
+                            style: TextStyle(fontSize: 20, color: color),
+                            textAlign: TextAlign.center,
                           ),
                         ],
                       ),
-                      title: Text(tiempo,
-                          style: TextStyle(fontSize: 20, color: Colors.white),
+                      trailing: Text(subtiempo,
+                          style: TextStyle(fontSize: 20, color: color),
                           textAlign: TextAlign.end),
+                      title: Text(tiempo,
+                          style: TextStyle(fontSize: 20, color: color),
+                          textAlign: TextAlign.center),
                     );
                   },
                   separatorBuilder: (context, index) {
@@ -135,9 +182,17 @@ class _CronometerState extends State<Cronometer> {
                       thickness: 2,
                     );
                   },
-                  itemCount: tiempos.length + 1)),
+                  itemCount: tiemposMeta.length + 1)),
         ),
       ]),
     );
+  }
+
+  int tomarMayor(List<int> lista) {
+    return lista.reduce(max);
+  }
+
+  int tomarMenor(List<int> lista) {
+    return lista.reduce(min);
   }
 }
